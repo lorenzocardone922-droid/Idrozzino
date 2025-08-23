@@ -1,0 +1,7 @@
+code,description,availability,stock_qty,location
+CALD-24KW,Caldaia a condensazione 24kW,in_stock,12,Scaffale A2
+PDC-8KW,Pompa di calore 8kW,order_next_day,0,Area pallet
+TUBI-PEX20,Tubo PEX Ø20,out_of_stock,0,Magazzino 2
+VALV-TERM,Valvola termostatica M30,in_stock,34,Cassetta 5
+CLIMA-9000BTU,Climatizzatore 9.000 BTU,order_next_day,0,Scaffale B1
+RACCORD-1/2,Raccordo ottone 1/2",in_stock,180,Scaffale C3

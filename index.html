@@ -1,0 +1,377 @@
+
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0f766e">
+  <title>Idra · Magazzino & Ordini (Offline)</title>
+  <style>
+    :root{--bg:#0f766e;--fg:#0b3f3a;}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f7f7f7;color:#1f2937}
+    header{background:var(--bg);color:white;padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    header h1{font-size:18px;margin:0;flex:1}
+    .pill{background:rgba(255,255,255,.15);padding:6px 10px;border-radius:24px;font-size:12px}
+    main{padding:16px;max-width:1100px;margin:auto}
+    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);padding:16px;margin-bottom:16px}
+    section h2{font-size:16px;margin:0 0 12px 0;color:#0b3f3a}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row>*{flex:1}
+    input[type="text"], input[type="number"], select{padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;width:100%}
+    button{padding:10px 14px;border:0;border-radius:10px;background:#0ea5a6;color:#fff;cursor:pointer}
+    button.secondary{background:#334155}
+    button.ghost{background:#e2e8f0;color:#0b3f3a}
+    table{width:100%; border-collapse:collapse}
+    th, td{padding:8px;border-bottom:1px solid #eee;font-size:14px}
+    th{background:#f1f5f9;text-align:left;position:sticky;top:0}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
+    .in_stock{background:#dcfce7;color:#166534}
+    .order_next_day{background:#fff7ed;color:#9a3412}
+    .out_of_stock{background:#fee2e2;color:#991b1b}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .footer{font-size:12px;color:#64748b}
+    .qty{width:70px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .sticky-actions{position:sticky;bottom:0;background:#fff;padding:12px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end}
+    .hint{font-size:12px;color:#64748b}
+    .fit{white-space:nowrap}
+    .stock{width:80px}
+    .right{text-align:right}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Idra · Magazzino & Ordini (Offline)</h1>
+  <span class="pill" id="status">Offline pronto</span>
+</header>
+<main>
+  <section>
+    <h2>1) Importa inventario (CSV da Excel)</h2>
+    <div class="row">
+      <div>
+        <input type="file" id="csvFile" accept=".csv">
+        <div class="hint">Usa il template: <a href="sample_inventory.csv" download>sample_inventory.csv</a>. Intestazioni: <code>code, description, availability, stock_qty, location</code>.</div>
+      </div>
+      <div class="row" style="flex:2">
+        <input type="text" id="search" placeholder="Cerca per codice, descrizione…">
+        <select id="availabilityFilter">
+          <option value="">Tutte le disponibilità</option>
+          <option value="in_stock">Disponibile a magazzino</option>
+          <option value="order_next_day">Ordinabile per domani</option>
+          <option value="out_of_stock">Non disponibile</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2) Lista articoli</h2>
+    <div class="toolbar">
+      <button class="ghost" id="clearSelection">Azzera selezione</button>
+      <label class="hint">Compila “Q.tà” per creare le liste. Aggiorna la giacenza nella colonna “Stock” e premi “Salva giacenze”.</label>
+    </div>
+    <div style="max-height:45vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px">
+      <table id="itemsTable">
+        <thead>
+          <tr>
+            <th class="fit">Sel.</th>
+            <th>Codice</th>
+            <th>Descrizione</th>
+            <th class="fit">Q.tà</th>
+            <th>Disp.</th>
+            <th class="fit">Stock</th>
+            <th>Ubicazione</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="sticky-actions">
+      <button id="saveStock">Salva giacenze</button>
+      <button class="secondary" id="buildLists">Crea liste prelievo / ordine</button>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div>
+      <h2>3) Pick list · Prelievo magazzino</h2>
+      <div class="toolbar">
+        <button class="secondary" id="exportPickCSV">Esporta CSV</button>
+        <button class="ghost" id="printPick">Stampa</button>
+      </div>
+      <div style="max-height:30vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px">
+        <table id="pickTable">
+          <thead>
+            <tr><th>Codice</th><th>Descrizione</th><th>Q.tà</th><th>Ubicazione</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h2>4) Lista materiali da ordinare</h2>
+      <div class="toolbar">
+        <button class="secondary" id="exportOrderCSV">Esporta CSV</button>
+        <button class="ghost" id="printOrder">Stampa</button>
+      </div>
+      <div style="max-height:30vh;overflow:auto;border:1px solid #e5e7eb;border-radius:8px">
+        <table id="orderTable">
+          <thead>
+            <tr><th>Codice</th><th>Descrizione</th><th>Q.tà</th><th>Note</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Note</h2>
+    <ul class="hint">
+      <li>Disponibilità supportate: <strong>in_stock</strong>, <strong>order_next_day</strong>, <strong>out_of_stock</strong>.</li>
+      <li>I dati restano sul dispositivo (IndexedDB). Puoi cancellarli svuotando i dati del sito o importando un nuovo CSV.</li>
+      <li>Consiglio: fai periodicamente un <strong>export CSV</strong> delle liste come backup.</li>
+    </ul>
+    <div class="footer">© Idra</div>
+  </section>
+</main>
+
+<script>
+// --- Utility ---
+function now(){ return new Date().toISOString(); }
+function availabilityBadge(v){
+  if(v==='in_stock') return '<span class="badge in_stock">Magazzino</span>';
+  if(v==='order_next_day') return '<span class="badge order_next_day">Ordine 24h</span>';
+  return '<span class="badge out_of_stock">Non disp.</span>';
+}
+
+// CSV parser minimale
+function parseCSV(text){
+  const rows = [];
+  let i=0, field='', row=[], inQuotes=false;
+  while(i < text.length){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else { inQuotes = false; }
+      } else { field += c; }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field.trim()); field=''; }
+      else if(c === '\n'){ row.push(field.trim()); rows.push(row); row=[]; field=''; }
+      else if(c === '\r'){ /* ignore */ }
+      else { field += c; }
+    }
+    i++;
+  }
+  row.push(field.trim()); rows.push(row);
+  if(rows.length && rows[rows.length-1].every(x => x==='')) rows.pop();
+  return rows;
+}
+
+// --- IndexedDB (solo locale) ---
+const DB_NAME = 'idra-inventory-offline';
+const STORE_ITEMS = 'items';
+let db;
+
+function openDB(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = (e)=>{
+      db = e.target.result;
+      const items = db.createObjectStore(STORE_ITEMS, { keyPath: 'code' });
+      items.createIndex('text', 'text');
+    };
+    req.onsuccess = (e)=>{ db = e.target.result; resolve(); };
+    req.onerror = (e)=> reject(e);
+  });
+}
+function putItems(items){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_ITEMS, 'readwrite');
+    const st = tx.objectStore(STORE_ITEMS);
+    items.forEach(it=>st.put(it));
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = (e)=> reject(e);
+  });
+}
+function updateItem(code, patch){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_ITEMS, 'readwrite');
+    const st = tx.objectStore(STORE_ITEMS);
+    const get = st.get(code);
+    get.onsuccess = ()=>{
+      const item = get.result || { code };
+      Object.assign(item, patch);
+      item.updated_at = now();
+      st.put(item);
+    };
+    tx.oncomplete = ()=> resolve();
+    tx.onerror = (e)=> reject(e);
+  });
+}
+function getAllItems(){
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(STORE_ITEMS, 'readonly');
+    const st = tx.objectStore(STORE_ITEMS);
+    const req = st.getAll();
+    req.onsuccess = ()=> resolve(req.result || []);
+    req.onerror = (e)=> reject(e);
+  });
+}
+
+// --- Stato app ---
+let ITEMS = [];
+let FILTER = { q:'', availability:'' };
+
+function renderTable(){
+  const tbody = document.querySelector('#itemsTable tbody');
+  const q = FILTER.q.toLowerCase();
+  const av = FILTER.availability;
+  tbody.innerHTML='';
+  for(const it of ITEMS){
+    if(q && !(it.code.toLowerCase().includes(q) || it.desc.toLowerCase().includes(q))) continue;
+    if(av && it.availability !== av) continue;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="fit"><input type="checkbox" class="sel"></td>
+      <td>${it.code}</td>
+      <td>${it.desc}</td>
+      <td><input class="qty" type="number" min="1" value="1"></td>
+      <td>${availabilityBadge(it.availability)}</td>
+      <td><input class="stock" type="number" step="1" min="0" value="${Number.isFinite(it.stock_qty)?it.stock_qty:0}"></td>
+      <td>${it.location||''}</td>
+    `;
+    tr.dataset.code = it.code;
+    tbody.appendChild(tr);
+  }
+}
+
+function refreshItemsView(){
+  getAllItems().then(all=>{ ITEMS = all; renderTable(); });
+}
+
+function buildLists(){
+  const rows = document.querySelectorAll('#itemsTable tbody tr');
+  const pick = [];
+  const order = [];
+  rows.forEach(r=>{
+    const sel = r.querySelector('.sel').checked;
+    if(!sel) return;
+    const code = r.dataset.code;
+    const qty = parseInt(r.querySelector('.qty').value || '1', 10);
+    const it = ITEMS.find(x=>x.code===code);
+    if(!it) return;
+    if(it.availability === 'in_stock' && (it.stock_qty||0) >= qty){
+      pick.push({code: it.code, desc: it.desc, qty, location: it.location||''});
+    } else {
+      order.push({code: it.code, desc: it.desc, qty, note: it.availability==='order_next_day'?'Ordine 24h':'Non disponibile'});
+    }
+  });
+  renderList('#pickTable tbody', pick, ['code','desc','qty','location']);
+  renderList('#orderTable tbody', order, ['code','desc','qty','note']);
+}
+
+function renderList(sel, arr, fields){
+  const tbody = document.querySelector(sel);
+  tbody.innerHTML = '';
+  arr.forEach(o=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = fields.map(f=>`<td>${o[f]??''}</td>`).join('');
+    tbody.appendChild(tr);
+  });
+  tbody.dataset.rows = JSON.stringify(arr);
+}
+
+function exportCSV(sel, filename){
+  const tbody = document.querySelector(sel);
+  const rows = JSON.parse(tbody.dataset.rows || '[]');
+  if(!rows.length){ alert('Nessuna riga da esportare.'); return; }
+  const headers = Object.keys(rows[0]);
+  const csv = [headers.join(',')].concat(rows.map(r=>headers.map(h=>`"${String(r[h]).replace(/"/g,'""')}"`).join(','))).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function saveStock(){
+  const rows = document.querySelectorAll('#itemsTable tbody tr');
+  let count = 0;
+  for(const r of rows){
+    const code = r.dataset.code;
+    const stock = parseInt(r.querySelector('.stock').value || '0', 10);
+    const it = ITEMS.find(x=>x.code===code);
+    if(!it) continue;
+    if(it.stock_qty !== stock){
+      await updateItem(code, { stock_qty: stock });
+      count++;
+    }
+  }
+  refreshItemsView();
+  alert('Giacenze salvate: ' + count + ' aggiornamenti.');
+}
+
+// Eventi UI
+document.getElementById('exportPickCSV').onclick = ()=> exportCSV('#pickTable tbody', 'pick_list.csv');
+document.getElementById('exportOrderCSV').onclick = ()=> exportCSV('#orderTable tbody', 'order_list.csv');
+document.getElementById('printPick').onclick = ()=> window.print();
+document.getElementById('printOrder').onclick = ()=> window.print();
+document.getElementById('buildLists').onclick = buildLists;
+document.getElementById('saveStock').onclick = saveStock;
+document.getElementById('clearSelection').onclick = ()=>{
+  document.querySelectorAll('.sel').forEach(cb=>cb.checked=false);
+};
+document.getElementById('search').oninput = (e)=>{ FILTER.q = e.target.value; renderTable(); };
+document.getElementById('availabilityFilter').onchange = (e)=>{ FILTER.availability = e.target.value; renderTable(); };
+
+// Import CSV
+document.getElementById('csvFile').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  const rows = parseCSV(text);
+  const header = rows[0].map(h=>h.toLowerCase());
+  const idx = {
+    code: header.indexOf('code'),
+    desc: header.indexOf('description'),
+    availability: header.indexOf('availability'),
+    stock: header.indexOf('stock_qty'),
+    location: header.indexOf('location')
+  };
+  if(idx.code<0 || idx.desc<0 || idx.availability<0){
+    alert('Intestazioni richieste: code, description, availability [, stock_qty, location]');
+    return;
+  }
+  const items = rows.slice(1).map(r=>({
+    code: r[idx.code]||'',
+    desc: r[idx.desc]||'',
+    availability: (r[idx.availability]||'').toLowerCase(),
+    stock_qty: idx.stock>=0 ? parseInt(r[idx.stock]||'0',10) : 0,
+    location: idx.location>=0 ? (r[idx.location]||'') : '',
+    text: ((r[idx.code]||'')+' '+(r[idx.desc]||'')).toLowerCase(),
+    updated_at: now()
+  })).filter(it=>it.code && it.desc);
+  await putItems(items);
+  refreshItemsView();
+  alert('Inventario importato: ' + items.length + ' articoli.');
+});
+
+// Init
+openDB().then(()=>{
+  refreshItemsView();
+});
+
+// Service worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+</body>
+</html>
