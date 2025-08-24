@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0f766e">
+  <title>Idra · Ordini Magazzino</title>
+  <style>
+    :root{--bg:#0f766e;--ink:#0b3f3a;}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f7f7f7;color:#1f2937}
+    header{background:var(--bg);color:white;padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    header h1{font-size:18px;margin:0;flex:1}
+    main{padding:16px;max-width:900px;margin:auto}
+    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);padding:16px;margin-bottom:16px}
+    h2{font-size:16px;margin:0 0 12px;color:var(--ink)}
+    input[type="text"], select{padding:10px;border:1px solid #e5e7eb;border-radius:10px;width:100%}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row>*{flex:1}
+    .grid{display:grid;grid-template-columns:1fr 110px;gap:8px 12px;align-items:center}
+    .item{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa}
+    .qty{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+    button{padding:12px 16px;border:0;border-radius:12px;background:#0ea5a6;color:white;cursor:pointer;font-weight:600}
+    button.ghost{background:#e2e8f0;color:#0b3f3a}
+    .sticky{position:sticky;bottom:0;background:#fff;padding:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:8px;border-radius:10px}
+    .muted{color:#64748b;font-size:12px}
+    .hidden{display:none}
+    textarea{width:100%;min-height:220px;padding:12px;border:1px solid #e5e7eb;border-radius:10px}
+    .pill{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:999px;padding:4px 10px;font-size:12px}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Idra · Ordini Magazzino</h1>
+  <span class="pill" id="status">Offline ready</span>
+</header>
+
+<main>
+  <section>
+    <h2>Dati ordine</h2>
+    <div class="row">
+      <div>
+        <label>Nome richiedente</label>
+        <input type="text" id="requester" placeholder="Nome e cognome">
+      </div>
+      <div>
+        <label>Macroarea</label>
+        <select id="macro">
+          <option value="">Tutte</option>
+          <option value="scarichi">Scarichi</option>
+          <option value="tubi">Tubi</option>
+          <option value="raccordi">Raccordi</option>
+          <option value="varie">Varie</option>
+        </select>
+      </div>
+    </div>
+    <p class="muted">L'elenco articoli è caricato da <code>inventory.json</code> nel repo. La lista resta salvata sul dispositivo per la giornata.</p>
+  </section>
+
+  <section>
+    <h2>Articoli</h2>
+    <div id="itemsContainer" class="grid"></div>
+    <div class="sticky">
+      <button class="ghost" id="clearDay">Nuova giornata / Svuota</button>
+      <button id="submitOrder">Invio</button>
+    </div>
+  </section>
+
+  <section id="resultBox" class="hidden">
+    <h2>Lista generata</h2>
+    <p class="muted">Solo articoli con quantità &gt; 0. Puoi copiarla, scaricarla o inviarla via email.</p>
+    <textarea id="resultText" readonly></textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <button class="ghost" id="copyBtn">Copia</button>
+      <button class="ghost" id="downloadBtn">Scarica TXT</button>
+      <button class="ghost" id="emailBtn">Invia via email</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const INVENTORY_URL = './inventory.json';
+const LS_KEY = 'idra_order_state_v1';
+
+let ALL_ITEMS = [], STATE = { date: '', requester: '', macro: '', quantities: {} };
+
+function $(s){ return document.querySelector(s); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){} }
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    const st = JSON.parse(raw);
+    if(st.date !== todayISO()){ localStorage.removeItem(LS_KEY); return; }
+    STATE = st;
+  }catch(e){}
+}
+function resetDay(){
+  STATE = { date: todayISO(), requester:'', macro:'', quantities:{} };
+  saveState(); $('#requester').value=''; $('#macro').value=''; renderItems(); $('#resultBox').classList.add('hidden');
+}
+
+async function loadInventory(){
+  const res = await fetch(INVENTORY_URL, { cache: 'no-store' });
+  if(!res.ok){ alert('Errore caricamento inventory.json'); return; }
+  const data = await res.json();
+  ALL_ITEMS = (data.items||[]).map(x=>({code:x.code,name:x.name,category:(x.category||'').toLowerCase()}));
+  renderItems();
+}
+
+function renderItems(){
+  const macro=$('#macro').value;
+  const items=macro?ALL_ITEMS.filter(x=>x.category===macro):ALL_ITEMS;
+  const cont=$('#itemsContainer'); cont.innerHTML='';
+  for(const it of items){
+    const name=document.createElement('div'); name.className='item'; name.textContent=it.name;
+    const qty=document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1';
+    qty.value=STATE.quantities[it.code]||0; qty.className='qty'; qty.dataset.code=it.code; qty.dataset.name=it.name;
+    qty.addEventListener('input',()=>{ const v=parseInt(qty.value||'0',10)||0; STATE.quantities[it.code]=v; saveState(); });
+    cont.appendChild(name); cont.appendChild(qty);
+  }
+}
+
+function buildBulletList(){
+  const req=$('#requester').value.trim()||'—';
+  const macro=$('#macro').value?` (${$('#macro').value})`:'';
+  const lines=Object.entries(STATE.quantities).filter(([c,n])=>n>0).map(([c,n])=>{
+    const item=ALL_ITEMS.find(x=>x.code===c); return item?`- ${item.name} — x${n}`:''; }).filter(Boolean);
+  const head=`Ordine materiali Idra${macro}\nRichiedente: ${req}\nData: ${todayISO()}\n\n`;
+  return head+(lines.join('\n')||'- (nessun articolo selezionato)')+'\n';
+}
+
+function showResult(){ $('#resultText').value=buildBulletList(); $('#resultBox').classList.remove('hidden'); }
+function copyToClipboard(){ navigator.clipboard.writeText($('#resultText').value).then(()=>alert('Copiato.')); }
+function downloadTxt(){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([$('#resultText').value],{type:'text/plain'})); a.download=`ordine_idra_${todayISO()}.txt`; a.click(); }
+function emailList(){ window.location.href=`mailto:?subject=Ordine materiali Idra&body=${encodeURIComponent($('#resultText').value)}`; }
+
+document.getElementById('submitOrder').addEventListener('click',showResult);
+document.getElementById('copyBtn').addEventListener('click',copyToClipboard);
+document.getElementById('downloadBtn').addEventListener('click',downloadTxt);
+document.getElementById('emailBtn').addEventListener('click',emailList);
+document.getElementById('macro').addEventListener('change',e=>{STATE.macro=e.target.value; saveState(); renderItems();});
+document.getElementById('requester').addEventListener('input',e=>{STATE.requester=e.target.value; saveState();});
+document.getElementById('clearDay').addEventListener('click',()=>{if(confirm('Sicuro di azzerare la lista?')) resetDay();});
+
+STATE.date=todayISO(); loadState();
+window.addEventListener('load',()=>{ $('#requester').value=STATE.requester||''; $('#macro').value=STATE.macro||''; loadInventory(); });
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').then(()=>{
+      const s=document.getElementById('status'); if(s) s.textContent='Offline pronto';
+    }).catch(()=>{
+      const s=document.getElementById('status'); if(s) s.textContent='Offline non attivo';
+    });
+  });
+}
+</script>
+</body>
+</html>
