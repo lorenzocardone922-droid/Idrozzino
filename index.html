@@ -33,7 +33,6 @@
 <body>
 <header>
   <h1>Idra · Ordini Magazzino</h1>
-  <span class="pill" id="status">Offline ready</span>
 </header>
 
 <main>
@@ -55,7 +54,7 @@
         </select>
       </div>
     </div>
-    <p class="muted">L'elenco articoli è caricato da <code>inventory.json</code> nel repo. La lista resta salvata sul dispositivo per la giornata.</p>
+    <p class="muted">La lista resta salvata sul dispositivo per la giornata.</p>
   </section>
 
   <section>
@@ -69,7 +68,7 @@
 
   <section id="resultBox" class="hidden">
     <h2>Lista generata</h2>
-    <p class="muted">Solo articoli con quantità &gt; 0. Puoi copiarla, scaricarla o inviarla via email.</p>
+    <p class="muted">Puoi copiarla, scaricarla o inviarla via email.</p>
     <textarea id="resultText" readonly></textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="ghost" id="copyBtn">Copia</button>
