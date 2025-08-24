@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0f766e">
+  <title>Idra · Ordini Magazzino</title>
+  <style>
+    :root{--bg:#0f766e;--ink:#0b3f3a;}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;background:#f7f7f7;color:#1f2937}
+    header{background:var(--bg);color:white;padding:16px 20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    header h1{font-size:18px;margin:0;flex:1}
+    main{padding:16px;max-width:900px;margin:auto}
+    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);padding:16px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 110px;gap:8px 12px;align-items:center}
+    .item{padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fafafa}
+    .qty{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+    button{padding:12px 16px;border:0;border-radius:12px;background:#0ea5a6;color:white;cursor:pointer;font-weight:600}
+    button.ghost{background:#e2e8f0;color:#0b3f3a}
+    .sticky{position:sticky;bottom:0;background:#fff;padding:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:8px}
+    .muted{color:#64748b;font-size:12px}
+    .hidden{display:none}
+    textarea{width:100%;min-height:220px;padding:12px;border:1px solid #e5e7eb;border-radius:10px}
+  </style>
+</head>
+<body>
+<header><h1>Idra · Ordini Magazzino</h1><span id="status">Offline ready</span></header>
+<main>
+  <section>
+    <label>Nome richiedente</label><input type="text" id="requester">
+    <label>Macroarea</label>
+    <select id="macro"><option value="">Tutte</option><option value="scarichi">Scarichi</option><option value="tubi">Tubi</option><option value="raccordi">Raccordi</option><option value="varie">Varie</option></select>
+  </section>
+  <section><div id="itemsContainer" class="grid"></div>
+    <div class="sticky"><button class="ghost" id="clearDay">Svuota</button><button id="submitOrder">Invio</button></div>
+  </section>
+  <section id="resultBox" class="hidden">
+    <textarea id="resultText" readonly></textarea>
+    <button class="ghost" id="copyBtn">Copia</button>
+    <button class="ghost" id="downloadBtn">Scarica TXT</button>
+    <button class="ghost" id="emailBtn">Invia email</button>
+  </section>
+</main>
+<script>
+const INVENTORY_URL='./inventory.json',LS_KEY='idra_state_v1';let ALL=[],STATE={date:'',requester:'',macro:'',quantities:{}};
+function $(s){return document.querySelector(s)}function today(){return new Date().toISOString().slice(0,10)}
+function save(){localStorage.setItem(LS_KEY,JSON.stringify(STATE))}function load(){let r=localStorage.getItem(LS_KEY);if(!r)return;let st=JSON.parse(r);if(st.date!==today()){localStorage.removeItem(LS_KEY);return}STATE=st}
+function reset(){STATE={date:today(),requester:'',macro:'',quantities:{}};save();$('#requester').value='';$('#macro').value='';render();$('#resultBox').classList.add('hidden')}
+async function inv(){let r=await fetch(INVENTORY_URL,{cache:'no-store'});ALL=(await r.json()).items;render()}
+function render(){let m=$('#macro').value,items=m?ALL.filter(x=>x.category===m):ALL,c=$('#itemsContainer');c.innerHTML='';for(let it of items){let n=document.createElement('div');n.className='item';n.textContent=it.name;let q=document.createElement('input');q.type='number';q.value=STATE.quantities[it.code]||0;q.className='qty';q.dataset.code=it.code;q.dataset.name=it.name;q.addEventListener('input',()=>{STATE.quantities[it.code]=parseInt(q.value||'0');save()});c.append(n,q)}}
+function build(){let req=$('#requester').value||'—';let lines=Object.entries(STATE.quantities).filter(([c,n])=>n>0).map(([c,n])=>{let i=ALL.find(x=>x.code===c);return i?`- ${i.name} x${n}`:''});return `Ordine Idra\nRichiedente: ${req}\nData: ${today()}\n\n`+(lines.join('\n')||'- nessun articolo')}
+function show(){$('#resultText').value=build();$('#resultBox').classList.remove('hidden')}
+$('#submitOrder').onclick=show;$('#copyBtn').onclick=()=>{navigator.clipboard.writeText($('#resultText').value)};$('#downloadBtn').onclick=()=>{let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#resultText').value],{type:'text/plain'}));a.download=`ordine_${today()}.txt`;a.click()};$('#emailBtn').onclick=()=>{location.href=`mailto:?subject=Ordine Idra&body=${encodeURIComponent($('#resultText').value)}`};$('#macro').onchange=e=>{STATE.macro=e.target.value;save();render()};$('#requester').oninput=e=>{STATE.requester=e.target.value;save()};$('#clearDay').onclick=()=>{if(confirm('Sicuro?'))reset()}
+STATE.date=today();load();window.onload=()=>{ $('#requester').value=STATE.requester; $('#macro').value=STATE.macro; inv()}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+</script>
+</body>
+</html>

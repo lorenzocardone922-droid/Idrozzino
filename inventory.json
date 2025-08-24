@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "code": "SC-110-BEND",
+      "name": "Curva 110° scarico",
+      "category": "scarichi"
+    },
+    {
+      "code": "TB-PEX20",
+      "name": "Tubo PEX Ø20",
+      "category": "tubi"
+    },
+    {
+      "code": "RC-1/2-OT",
+      "name": "Raccordo ottone 1/2\"",
+      "category": "raccordi"
+    },
+    {
+      "code": "VR-NASTRO",
+      "name": "Nastro PTFE",
+      "category": "varie"
+    }
+  ]
+}
