@@ -112,18 +112,45 @@ async function loadInventory(){
 }
 
 function renderItems(){
-  const macro=$('#macro').value;
-  const items=macro?ALL_ITEMS.filter(x=>x.category===macro):ALL_ITEMS;
-  const cont=$('#itemsContainer'); cont.innerHTML='';
-  for(const it of items){
-    const name=document.createElement('div'); name.className='item'; name.textContent=it.name;
-    const qty=document.createElement('input'); qty.type='number'; qty.min='0'; qty.step='1';
-    qty.value=STATE.quantities[it.code]||0; qty.className='qty'; qty.dataset.code=it.code; qty.dataset.name=it.name;
-    qty.addEventListener('input',()=>{ const v=parseInt(qty.value||'0',10)||0; STATE.quantities[it.code]=v; saveState(); });
-    cont.appendChild(name); cont.appendChild(qty);
+  const macro = $('#macro').value;
+  const items = macro ? ALL_ITEMS.filter(x=>x.category===macro) : ALL_ITEMS;
+  const cont = $('#itemsContainer'); 
+  cont.innerHTML = '';
+
+  for (const it of items){
+    const name = document.createElement('div'); 
+    name.className = 'item'; 
+    name.textContent = it.name;
+
+    const qty = document.createElement('input'); 
+    qty.type = 'number'; 
+    qty.min = '0'; 
+    qty.step = '1';
+    qty.inputMode = 'numeric'; 
+
+    // se la quantità è >0 la mostro, altrimenti lascio vuoto
+    const current = parseInt(STATE.quantities[it.code] ?? '', 10);
+    qty.value = (current && current > 0) ? String(current) : '';
+
+    qty.className = 'qty'; 
+    qty.dataset.code = it.code; 
+    qty.dataset.name = it.name;
+
+    qty.addEventListener('input', ()=>{
+      const v = qty.value.trim();
+      if (v === '' || v === '0') {
+        delete STATE.quantities[it.code];
+        qty.value = '';
+      } else {
+        STATE.quantities[it.code] = parseInt(v, 10);
+      }
+      saveState();
+    });
+
+    cont.appendChild(name); 
+    cont.appendChild(qty);
   }
 }
-
 function buildBulletList(){
   const req=$('#requester').value.trim()||'—';
   const macro=$('#macro').value?` (${$('#macro').value})`:'';
