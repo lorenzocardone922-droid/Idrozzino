@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "code": "SC-110-BEND",
+      "name": "Curva 110° scarico",
+      "category": "scarichi"
+    },
+    {
+      "code": "SC-050-T",
+      "name": "T 50 scarico",
+      "category": "scarichi"
+    },
+    {
+      "code": "TB-PEX20",
+      "name": "Tubo PEX Ø20",
+      "category": "tubi"
+    },
+    {
+      "code": "TB-PEX26",
+      "name": "Tubo PEX Ø26",
+      "category": "tubi"
+    },
+    {
+      "code": "RC-1/2-OT",
+      "name": "Raccordo ottone 1/2\"",
+      "category": "raccordi"
+    },
+    {
+      "code": "RC-3/4-OT",
+      "name": "Raccordo ottone 3/4\"",
+      "category": "raccordi"
+    },
+    {
+      "code": "VR-NASTRO",
+      "name": "Nastro PTFE",
+      "category": "varie"
+    },
+    {
+      "code": "VR-FISS",
+      "name": "Fischer tassello 8mm",
+      "category": "varie"
+    }
+  ]
+}
